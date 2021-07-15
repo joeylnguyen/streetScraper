@@ -1,14 +1,13 @@
 const puppeteer = require('puppeteer');
-var Airtable = require('airtable');
-var base = new Airtable({apiKey: process.env.AIRTABLE_API_KEY}).base(process.env.AIRTABLE_BASE_ID);
 
-const listingUrl = process.argv.slice(2).join(' ').trim();
+
+
 
 const grabInnerText = async (page, selector) => {
   return await page.$eval(selector, element => element.innerText);
 };
 
-(async () => {
+const scrape = async (listingUrl) => {
   const browser = await puppeteer.launch({headless: false});
   const page = await browser.newPage();
   await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36');
@@ -39,32 +38,26 @@ const grabInnerText = async (page, selector) => {
   size = `${size[size.length - 3][size[size.length - 3].length - 1]} ${size[size.length - 2].slice(0, 3)} ${size[size.length - 2][size[size.length - 2].length - 1]} ${size[size.length - 1]}`;
 
   let neighborhood = await page.evaluate(() => document.querySelectorAll('div.details_info')[1].innerText);
-  neighborhood = neighborhood.split(' ').slice(3).join(' ');
+  neighborhood = neighborhood.split(' ').slice(2, neighborhood.length).join(' ');
 
   let availability = await page.evaluate(() => document.querySelectorAll('div.Vitals-data')[0].innerText);
 
-  base('Apartments').create([
-    {
-      "fields": {
-        "Name": title,
-        "Link": listingUrl,
-        "Monthly Rent": price,
-        "Net Effective Rent": netPrice,
-        "Neighborhood": neighborhood,
-        "Contacted": false,
-        "Size": size,
-        "Availability": availability
-      }
-    }
-  ], {typecast: true}, function(err, records) {
-    if (err) {
-      console.error(err);
-      return;
-    }
-    records.forEach(function (record) {
-      console.log(record.getId());
-    });
-  });
-
   await browser.close();
-})();
+
+  return {
+    "fields": {
+      "Name": title,
+      "Link": listingUrl,
+      "Monthly Rent": price,
+      "Net Effective Rent": netPrice,
+      "Neighborhood": neighborhood,
+      "Contacted": false,
+      "Size": size,
+      "Availability": availability
+    }
+  };
+};
+
+module.exports = {
+  scrape
+}
